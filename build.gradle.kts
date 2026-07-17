@@ -57,7 +57,13 @@ tasks.register<Exec>("jpackage") {
             "--app-version", project.version.toString(),
             "--main-jar", "${project.name}-${project.version}.jar",
             "--main-class", "com.diskusage.App",
-            "--java-options", "-Dfile.encoding=UTF-8"
+            "--java-options", "-Dfile.encoding=UTF-8",
+            // The app isn't modularized, so its jars sit on the classpath - but JavaFX
+            // itself must be resolved from the module path or the launcher fails with
+            // "JavaFX runtime components are missing". $APPDIR is a jpackage token
+            // resolved at launch time to the app's own install directory.
+            "--java-options", "--module-path=\$APPDIR",
+            "--java-options", "--add-modules=javafx.controls"
         )
     }
 
