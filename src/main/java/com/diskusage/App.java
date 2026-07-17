@@ -43,7 +43,8 @@ public class App extends Application {
     private final Button backButton = new Button("◀");
     private final Button forwardButton = new Button("▶");
     private final ProgressIndicator progressIndicator = new ProgressIndicator();
-    private final Label statusLabel = new Label("Enter a path or click Select, then Scan.");
+    private final Label statusLabel = new Label("Enter a path or click Browse, then Scan.");
+    private final Label infoLabel = new Label();
     private final SunburstChart chart = new SunburstChart();
 
     private final List<ScanResult> history = new ArrayList<>();
@@ -56,22 +57,26 @@ public class App extends Application {
         pathField.setPromptText("e.g. C:\\Users or C:\\");
         pathField.setPrefWidth(280);
         pathField.setMinWidth(120);
-        pathField.setOnAction(e -> startScan());
         HBox.setHgrow(pathField, Priority.ALWAYS);
 
-        Button selectButton = new Button("Select...");
-        selectButton.setOnAction(e -> onSelectDirectory(stage));
+        Button browseButton = new Button("Browse");
+        browseButton.setOnAction(e -> onSelectDirectory(stage));
+        browseButton.setMinWidth(Region.USE_PREF_SIZE);
 
         depthSpinner.setEditable(true);
         depthSpinner.setPrefWidth(70);
+        depthSpinner.setMinWidth(Region.USE_PREF_SIZE);
 
         scanButton.setOnAction(e -> startScan());
+        scanButton.setMinWidth(Region.USE_PREF_SIZE);
         cancelButton.setOnAction(e -> cancelScan());
         cancelButton.setVisible(false);
         cancelButton.managedProperty().bind(cancelButton.visibleProperty());
+        cancelButton.setMinWidth(Region.USE_PREF_SIZE);
         progressIndicator.setVisible(false);
         progressIndicator.managedProperty().bind(progressIndicator.visibleProperty());
         progressIndicator.setPrefSize(20, 20);
+        progressIndicator.setMinWidth(Region.USE_PREF_SIZE);
 
         Label pathLabel = new Label("Path:");
         Label depthLabel = new Label("Max sub-levels:");
@@ -82,11 +87,13 @@ public class App extends Application {
         forwardButton.setTooltip(new Tooltip("Next chart"));
         backButton.setOnAction(e -> goBack());
         forwardButton.setOnAction(e -> goForward());
+        backButton.setMinWidth(Region.USE_PREF_SIZE);
+        forwardButton.setMinWidth(Region.USE_PREF_SIZE);
         updateHistoryButtons();
 
         HBox controls = new HBox(8,
                 backButton, forwardButton,
-                pathLabel, pathField, selectButton,
+                pathLabel, pathField, browseButton,
                 depthLabel, depthSpinner,
                 scanButton, cancelButton, progressIndicator);
         controls.setAlignment(Pos.CENTER_LEFT);
@@ -95,15 +102,25 @@ public class App extends Application {
         StackPane chartHolder = new StackPane(chart);
         chartHolder.setPadding(new Insets(10));
 
-        statusLabel.setPadding(new Insets(6, 10, 10, 10));
+        infoLabel.setStyle("-fx-opacity: 0.75;");
+        infoLabel.setMinWidth(Region.USE_PREF_SIZE);
+
+        BorderPane statusBar = new BorderPane();
+        statusBar.setLeft(statusLabel);
+        statusBar.setRight(infoLabel);
+        statusBar.setPadding(new Insets(6, 10, 10, 10));
+        BorderPane.setAlignment(statusLabel, Pos.CENTER_LEFT);
+        BorderPane.setAlignment(infoLabel, Pos.CENTER_RIGHT);
 
         BorderPane root = new BorderPane();
         root.setTop(controls);
         root.setCenter(chartHolder);
-        root.setBottom(statusLabel);
+        root.setBottom(statusBar);
 
         stage.setTitle("Disk Usage Visualizer");
         stage.setScene(new Scene(root, 780, 640));
+        stage.setMinWidth(650);
+        stage.setMinHeight(420);
         stage.show();
     }
 
@@ -117,7 +134,6 @@ public class App extends Application {
         File selected = chooser.showDialog(stage);
         if (selected != null) {
             pathField.setText(selected.getAbsolutePath());
-            startScan();
         }
     }
 
@@ -152,10 +168,13 @@ public class App extends Application {
         scanButton.setDisable(true);
         chart.setBusy(true);
 
+        long startNanos = System.nanoTime();
+
         task.setOnSucceeded(e -> {
             statusLabel.textProperty().unbind();
             chart.setBusy(false);
-            onScanFinished(task.getValue(), path, maxDepth);
+            long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
+            onScanFinished(task.getValue(), path, maxDepth, elapsedMillis);
         });
         task.setOnFailed(e -> {
             statusLabel.textProperty().unbind();
@@ -186,7 +205,7 @@ public class App extends Application {
         }
     }
 
-    private void onScanFinished(DirNode root, Path scannedPath, int maxDepth) {
+    private void onScanFinished(DirNode root, Path scannedPath, int maxDepth, long elapsedMillis) {
         progressIndicator.setVisible(false);
         cancelButton.setVisible(false);
         scanButton.setDisable(false);
@@ -201,7 +220,7 @@ public class App extends Application {
             }
         }
 
-        ScanResult result = new ScanResult(scannedPath, root, freeSpace, maxDepth);
+        ScanResult result = new ScanResult(scannedPath, root, freeSpace, maxDepth, elapsedMillis);
         if (historyIndex < history.size() - 1) {
             // A new scan branches off the current point in history, discarding "forward" entries.
             history.subList(historyIndex + 1, history.size()).clear();
@@ -244,6 +263,12 @@ public class App extends Application {
             sb.append(", free: ").append(FormatUtil.formatBytes(result.freeSpace()));
         }
         statusLabel.setText(sb.toString());
+
+        long fileCount = result.root().getFileCount();
+        String durationText = FormatUtil.formatDuration(result.durationMillis());
+        infoLabel.setText(fileCount > 0
+                ? FormatUtil.formatCount(fileCount) + " files in " + durationText
+                : durationText);
     }
 
     private boolean isVolumeRoot(Path path) {
