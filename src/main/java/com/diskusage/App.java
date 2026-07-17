@@ -2,6 +2,7 @@ package com.diskusage;
 
 import com.diskusage.chart.SunburstChart;
 import com.diskusage.model.DirNode;
+import com.diskusage.model.ScanResult;
 import com.diskusage.scan.DirectoryScanTask;
 import com.diskusage.util.FormatUtil;
 import javafx.application.Application;
@@ -15,6 +16,7 @@ import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -29,6 +31,8 @@ import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 public class App extends Application {
 
@@ -36,9 +40,14 @@ public class App extends Application {
     private final Spinner<Integer> depthSpinner = new Spinner<>(1, 10, 3);
     private final Button scanButton = new Button("Scan");
     private final Button cancelButton = new Button("Cancel");
+    private final Button backButton = new Button("◀");
+    private final Button forwardButton = new Button("▶");
     private final ProgressIndicator progressIndicator = new ProgressIndicator();
     private final Label statusLabel = new Label("Enter a path or click Select, then Scan.");
     private final SunburstChart chart = new SunburstChart();
+
+    private final List<ScanResult> history = new ArrayList<>();
+    private int historyIndex = -1;
 
     private DirectoryScanTask currentTask;
 
@@ -69,7 +78,14 @@ public class App extends Application {
         pathLabel.setMinWidth(Region.USE_PREF_SIZE);
         depthLabel.setMinWidth(Region.USE_PREF_SIZE);
 
+        backButton.setTooltip(new Tooltip("Previous chart"));
+        forwardButton.setTooltip(new Tooltip("Next chart"));
+        backButton.setOnAction(e -> goBack());
+        forwardButton.setOnAction(e -> goForward());
+        updateHistoryButtons();
+
         HBox controls = new HBox(8,
+                backButton, forwardButton,
                 pathLabel, pathField, selectButton,
                 depthLabel, depthSpinner,
                 scanButton, cancelButton, progressIndicator);
@@ -185,12 +201,47 @@ public class App extends Application {
             }
         }
 
-        chart.setData(root, freeSpace, maxDepth);
+        ScanResult result = new ScanResult(scannedPath, root, freeSpace, maxDepth);
+        if (historyIndex < history.size() - 1) {
+            // A new scan branches off the current point in history, discarding "forward" entries.
+            history.subList(historyIndex + 1, history.size()).clear();
+        }
+        history.add(result);
+        historyIndex = history.size() - 1;
+        updateHistoryButtons();
+
+        displayResult(result);
+    }
+
+    private void goBack() {
+        if (historyIndex > 0) {
+            historyIndex--;
+            displayResult(history.get(historyIndex));
+            updateHistoryButtons();
+        }
+    }
+
+    private void goForward() {
+        if (historyIndex < history.size() - 1) {
+            historyIndex++;
+            displayResult(history.get(historyIndex));
+            updateHistoryButtons();
+        }
+    }
+
+    private void updateHistoryButtons() {
+        backButton.setDisable(historyIndex <= 0);
+        forwardButton.setDisable(historyIndex >= history.size() - 1);
+    }
+
+    private void displayResult(ScanResult result) {
+        pathField.setText(result.path().toString());
+        chart.setData(result.root(), result.freeSpace(), result.maxDepth());
 
         StringBuilder sb = new StringBuilder();
-        sb.append(scannedPath).append("  -  used: ").append(FormatUtil.formatBytes(root.getSize()));
-        if (freeSpace > 0) {
-            sb.append(", free: ").append(FormatUtil.formatBytes(freeSpace));
+        sb.append(result.path()).append("  -  used: ").append(FormatUtil.formatBytes(result.root().getSize()));
+        if (result.freeSpace() > 0) {
+            sb.append(", free: ").append(FormatUtil.formatBytes(result.freeSpace()));
         }
         statusLabel.setText(sb.toString());
     }
