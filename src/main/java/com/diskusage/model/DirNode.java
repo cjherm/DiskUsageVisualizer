@@ -15,6 +15,7 @@ public class DirNode {
     private final Path path;
     private final boolean directory;
     private long size;
+    private long fileCount;
     private final List<DirNode> children = new ArrayList<>();
 
     public DirNode(Path path, boolean directory) {
@@ -50,6 +51,18 @@ public class DirNode {
 
     public void addSize(long delta) {
         this.size += delta;
+    }
+
+    public long getFileCount() {
+        return fileCount;
+    }
+
+    public void setFileCount(long fileCount) {
+        this.fileCount = fileCount;
+    }
+
+    public void addFileCount(long delta) {
+        this.fileCount += delta;
     }
 
     public List<DirNode> getChildren() {

@@ -23,4 +23,15 @@ public final class FormatUtil {
     public static String formatPercent(double fraction) {
         return String.format("%.1f%%", fraction * 100);
     }
+
+    public static String formatDuration(long millis) {
+        if (millis < 1000) {
+            return millis + " ms";
+        }
+        return String.format("%.2f s", millis / 1000.0);
+    }
+
+    public static String formatCount(long count) {
+        return String.format("%,d", count);
+    }
 }

@@ -43,11 +43,14 @@ public class DirectoryScanTask extends Task<DirNode> {
 
         if (!isDirectory) {
             node.setSize(sizeOfFile(path));
+            node.setFileCount(1);
             return node;
         }
 
         if (depth >= maxDepth) {
-            node.setSize(computeSizeOnly(path));
+            long[] sizeAndCount = computeSizeAndCount(path);
+            node.setSize(sizeAndCount[0]);
+            node.setFileCount(sizeAndCount[1]);
             return node;
         }
 
@@ -60,6 +63,7 @@ public class DirectoryScanTask extends Task<DirNode> {
                 DirNode child = scan(entry, depth + 1);
                 node.addChild(child);
                 node.addSize(child.getSize());
+                node.addFileCount(child.getFileCount());
             }
         } catch (IOException e) {
             // Directory not listable (permissions, etc.) - leave node with size 0.
@@ -75,8 +79,13 @@ public class DirectoryScanTask extends Task<DirNode> {
         }
     }
 
-    private long computeSizeOnly(Path dir) {
-        long[] total = {0L};
+    /**
+     * Sums size and counts files below {@code dir} in a single walk, since both
+     * numbers come from the same {@link BasicFileAttributes} already being read
+     * per file - counting adds no extra I/O over just summing size.
+     */
+    private long[] computeSizeAndCount(Path dir) {
+        long[] totals = {0L, 0L};
         try {
             Files.walkFileTree(dir, new SimpleFileVisitor<>() {
                 @Override
@@ -84,7 +93,8 @@ public class DirectoryScanTask extends Task<DirNode> {
                     if (isCancelled()) {
                         return FileVisitResult.TERMINATE;
                     }
-                    total[0] += attrs.size();
+                    totals[0] += attrs.size();
+                    totals[1]++;
                     return FileVisitResult.CONTINUE;
                 }
 
@@ -105,8 +115,8 @@ public class DirectoryScanTask extends Task<DirNode> {
                 }
             });
         } catch (IOException e) {
-            // Best-effort; partial total is used.
+            // Best-effort; partial totals are used.
         }
-        return total[0];
+        return totals;
     }
 }
