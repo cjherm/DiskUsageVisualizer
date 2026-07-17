@@ -33,3 +33,35 @@ application {
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.register<Exec>("jpackage") {
+    group = "distribution"
+    description = "Packages the app as a native Windows app-image (a folder with a double-clickable .exe " +
+            "and a bundled runtime - no separate Java install needed on the target machine)."
+    dependsOn("installDist")
+
+    doFirst {
+        val launcher = javaToolchains.launcherFor(java.toolchain).get()
+        val jpackageExe = launcher.metadata.installationPath.file("bin/jpackage.exe").asFile
+
+        val inputDir = layout.buildDirectory.dir("install/${project.name}/lib").get().asFile
+        val destDir = layout.buildDirectory.dir("jpackage").get().asFile
+        destDir.deleteRecursively()
+
+        commandLine(
+            jpackageExe.absolutePath,
+            "--type", "app-image",
+            "--input", inputDir.absolutePath,
+            "--dest", destDir.absolutePath,
+            "--name", "DiskUsageVisualizer",
+            "--app-version", project.version.toString(),
+            "--main-jar", "${project.name}-${project.version}.jar",
+            "--main-class", "com.diskusage.App",
+            "--java-options", "-Dfile.encoding=UTF-8"
+        )
+    }
+
+    doLast {
+        println("App image created at: ${layout.buildDirectory.dir("jpackage/DiskUsageVisualizer").get().asFile.absolutePath}")
+    }
+}
