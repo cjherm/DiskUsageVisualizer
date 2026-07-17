@@ -16,6 +16,10 @@ java {
     }
 }
 
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+}
+
 javafx {
     version = "21.0.2"
     modules = listOf("javafx.controls")
@@ -23,6 +27,7 @@ javafx {
 
 application {
     mainClass.set("com.diskusage.App")
+    applicationDefaultJvmArgs = listOf("-Dfile.encoding=UTF-8")
 }
 
 tasks.test {
