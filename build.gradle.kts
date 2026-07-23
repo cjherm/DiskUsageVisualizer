@@ -55,6 +55,7 @@ tasks.register<Exec>("jpackage") {
             "--dest", destDir.absolutePath,
             "--name", "DiskUsageVisualizer",
             "--app-version", project.version.toString(),
+            "--icon", file("icons/app-icon.ico").absolutePath,
             "--main-jar", "${project.name}-${project.version}.jar",
             "--main-class", "com.diskusage.App",
             "--java-options", "-Dfile.encoding=UTF-8",

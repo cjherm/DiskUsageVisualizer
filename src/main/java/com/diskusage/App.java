@@ -17,6 +17,7 @@ import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -118,6 +119,7 @@ public class App extends Application {
         root.setBottom(statusBar);
 
         stage.setTitle("Disk Usage Visualizer");
+        stage.getIcons().add(new Image(getClass().getResourceAsStream("/com/diskusage/app-icon.png")));
         stage.setScene(new Scene(root, 780, 640));
         stage.setMinWidth(650);
         stage.setMinHeight(420);
